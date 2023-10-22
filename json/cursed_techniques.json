@@ -1,0 +1,30 @@
+{
+    "boogie_woogie": {
+        "activation": "always",
+        "cost": 50,
+        "duration": 1,
+        "effects": [
+            [
+                "buff_defense",
+                2
+            ],
+            [
+                "buff_attack",
+                2
+            ]
+        ],
+        "type": "buff_ally"
+    },
+    "playful_cloud": {
+        "activation": "always",
+        "cost": 0,
+        "duration": 0,
+        "effects": [
+            [
+                "damage_equation",
+                "1d3*10"
+            ]
+        ],
+        "type": "damage"
+    }
+}

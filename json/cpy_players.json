@@ -1,0 +1,20 @@
+{
+    "Aoi Todo": {
+        "discord_name": "thekidfrombrooklyn.com",
+        "max_health": 140,
+        "current_health": 140,
+        "max_cursed_energy": "immense",
+        "current_cursed_energy": 1950,
+        "cursed_tools": ["playful_cloud"],
+        "cursed_techniques": ["boogie_woogie"]
+    },
+    "Yuji Itadori": {
+        "discord_name": "test",
+        "max_health": 100,
+        "current_health": 90,
+        "max_cursed_energy": "average",
+        "current_cursed_energy": 250,
+        "cursed_tools": ["slaughter_demon"],
+        "cursed_techniques": []
+    }
+}

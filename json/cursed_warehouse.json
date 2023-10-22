@@ -1,0 +1,10 @@
+{
+    "playful_cloud": {
+        "point_cost": 3,
+        "damage": 0
+    },
+    "slaughter_demon": {
+        "point_cost": 1,
+        "damage": 10
+    }
+}

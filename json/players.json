@@ -1,0 +1,32 @@
+{
+    "Aoi Todo": {
+        "current_cursed_energy": 1950,
+        "current_health": 200,
+        "cursed_techniques": [
+            "boogie_woogie"
+        ],
+        "cursed_tools": [
+            "playful_cloud"
+        ],
+        "discord_name": "thekidfrombrooklyn.com",
+        "max_cursed_energy": "immense",
+        "max_health": 200
+    },
+    "Killua Zoldyk": {
+        "current_cursed_energy": 100,
+        "discord_name": "@thekidfrombrooklyn.com",
+        "max_cursed_energy": 100,
+        "points_remaining": 13
+    },
+    "Yuji Itadori": {
+        "current_cursed_energy": 250,
+        "current_health": 90,
+        "cursed_techniques": [],
+        "cursed_tools": [
+            "slaughter_demon"
+        ],
+        "discord_name": "test",
+        "max_cursed_energy": "average",
+        "max_health": 100
+    }
+}
