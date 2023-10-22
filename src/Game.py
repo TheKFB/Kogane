@@ -27,7 +27,10 @@ class Game:
         return str(self.players[name])
     
     def add_player(self, name, user):
-        initial_d = {"discord_name": str(user), "points_remaining": 13}
+        initial_d = {"discord_name": str(user), 
+                     "points_remaining": 13,
+                     "cursed_tools": [],
+                     "cursed_techniques": []}
         player = Player(name, initial_d)
         self.players[name] = player
         self.json_players[name] = initial_d
@@ -50,11 +53,64 @@ class Game:
         self.players[name].info = self.json_players[name]
         self.update_players()
 
+    def add_tool(self, name, tool):
+        self.json_players[name]["cursed_tools"].append(tool)
+        self.players[name].info = self.json_players[name]
+        self.update_players()
+
+    def add_technique(self, name, technique):
+        self.json_players[name]["cursed_techniques"].append(technique)
+        self.players[name].info = self.json_players[name]
+        self.update_players()
+
     def remove_player(self, name):
         del self.players[name]
         del self.json_players[name]
         self.update_players()
 
+    # For use in autocomplete lists
+    def get_owned_players(self, user):
+        choices = []
+        for name in self.json_players:
+            if self.is_owner(name, user):
+                choices.append({"name": name, "value": name})
+        return choices
+    
+    # For use in autocomplete lists
+    def get_all_players(self):
+        return [{"name": name, "value": name} for name in self.json_players]
+
+    # For use in autocomplete lists
+    def get_available_tools(self):
+        used_tools = []
+        for player in self.json_players:
+            for tool in self.json_players[player]["cursed_tools"]:
+                used_tools.append(tool)
+
+        available_tools = []
+        for tool in self.json_tools:
+            if tool not in used_tools:
+                available_tools.append({"name": tool, "value": tool})
+
+        return available_tools
+    
+    # For use in autocomplete lists
+    def get_available_techniques(self):
+        used_techniques = []
+        for player in self.json_players:
+            for technique in self.json_players[player]["cursed_techniques"]:
+                used_techniques.append(technique)
+
+        # Cursed tools with a cursed technique have the technique that is the same name as the tool
+        # This makes sure you can't add a tool's technique as a player technique
+        cursed_tools = [x for x in self.json_tools]
+        available_techniques = []
+        for technique in self.json_techniques:
+            if technique not in used_techniques and technique not in cursed_tools:
+                available_techniques.append({"name": technique, "value": technique})
+
+        return available_techniques
+    
     # Load .json files into game
     def read_data(self):
         cur_path = Path(__file__).parent

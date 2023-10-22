@@ -6,5 +6,9 @@
     "slaughter_demon": {
         "point_cost": 1,
         "damage": 10
+    },
+    "inverted_spear_of_heaven": {
+        "point_cost": 3,
+        "damage": 20
     }
 }

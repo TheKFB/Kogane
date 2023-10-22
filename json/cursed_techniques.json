@@ -26,5 +26,15 @@
             ]
         ],
         "type": "damage"
+    },
+    "godspeed": {
+        "activation": "always",
+        "cost": 100,
+        "duration": 3,
+        "effects": [
+            [
+                
+            ]
+        ]
     }
 }

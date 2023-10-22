@@ -13,9 +13,13 @@
         "max_health": 200
     },
     "Killua Zoldyk": {
-        "current_cursed_energy": 100,
+        "cursed_techniques": [
+            "godspeed"
+        ],
+        "cursed_tools": [
+            "inverted_spear_of_heaven"
+        ],
         "discord_name": "@thekidfrombrooklyn.com",
-        "max_cursed_energy": 100,
         "points_remaining": 13
     },
     "Yuji Itadori": {
