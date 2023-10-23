@@ -42,3 +42,4 @@ def convert_CE_limit(limit):
             return 1550
         case "immense":
             return 1950
+        

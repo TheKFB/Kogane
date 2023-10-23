@@ -12,6 +12,22 @@
         "max_cursed_energy": "immense",
         "max_health": 200
     },
+    "Franky": {
+        "cursed_techniques": [],
+        "cursed_tools": [],
+        "discord_name": "@thekidfrombrooklyn.com",
+        "points_remaining": 13
+    },
+    "Jogoat": {
+        "current_cursed_energy": 100,
+        "current_health": 150,
+        "cursed_techniques": [],
+        "cursed_tools": [],
+        "discord_name": "@thekidfrombrooklyn.com",
+        "max_cursed_energy": 100,
+        "max_health": 150,
+        "points_remaining": 13
+    },
     "Killua Zoldyk": {
         "cursed_techniques": [
             "godspeed"
@@ -32,5 +48,11 @@
         "discord_name": "test",
         "max_cursed_energy": "average",
         "max_health": 100
+    },
+    "Zero": {
+        "cursed_techniques": [],
+        "cursed_tools": [],
+        "discord_name": "@thekidfrombrooklyn.com",
+        "points_remaining": 13
     }
 }

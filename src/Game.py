@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 from Player import Player
+from interactions import Client, Intents, slash_command, slash_option, OptionType, SlashContext, SlashCommandChoice, AutocompleteContext
+from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, spread_to_rows, Extension
 
-class Game:
+class Game(Extension):
     # Dict of Player objects
     # Format: "name": Player_Object
     players = {}
@@ -13,7 +15,7 @@ class Game:
 
     json_techniques = {}
 
-    def __init__(self):
+    def __init__(self, bot):
         self.load_players()
 
     def load_players(self):
@@ -23,11 +25,38 @@ class Game:
             player = Player(name, info)
             self.players[name] = player
 
-    def get_player(self, name):
-        return str(self.players[name])
-    
-    def add_player(self, name, user):
-        initial_d = {"discord_name": str(user), 
+#                   #
+#   Slash Commands  #
+#                   #
+
+    # Show a player's stats
+    @slash_command(name="show", description="Show a player's information", scopes=[1165369533863837726])
+    @slash_option(
+        name="player",
+        description="Show a Player's stats",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def show(self, ctx: SlashContext, player: str):
+        await ctx.send(str(json.dumps(self.json_players[player], indent=4)))
+    @show.autocomplete("player")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(
+            choices=self.get_all_players()
+        )
+
+    # Join the Culling Games
+    # YO! I'm Kogane! The deathmatch known as the CUlling Game is underway inside of this barrier! Once you step inside, you're a player too! Knowing that, will you come inside anyway?
+    @slash_command(name="join", description="Join the Culling Games!", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of the character to join",
+        required=True,
+        opt_type=OptionType.STRING
+    )
+    async def join(self, ctx: SlashContext, name: str):
+        initial_d = {"discord_name": str(ctx.author), 
                      "points_remaining": 13,
                      "cursed_tools": [],
                      "cursed_techniques": []}
@@ -35,11 +64,52 @@ class Game:
         self.players[name] = player
         self.json_players[name] = initial_d
         self.update_players()
+        comp: list[ActionRow] = [
+            ActionRow(
+                Button(
+                    style=ButtonStyle.GREEN,
+                    label="Click Me",
+                ),
+                Button(
+                    style=ButtonStyle.GREEN,
+                    label="Click Me Too",
+                )
+            )
+        ]
+        await ctx.send(" has officially joined the Culling Games!", components=comp)
 
-    def is_owner(self, name, user):
-        return user == self.json_players[name]["discord_name"]
-
-    def update_player(self, name, criteria, value):
+    # Update a Player
+    @slash_command(name="update", description="Update your player", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of the character to update",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    @slash_option(
+        name="criteria",
+        description="Criteria to update",
+        required=True,
+        opt_type=OptionType.STRING,
+        choices=[
+            SlashCommandChoice(name="max_health", value="max_health"),
+            SlashCommandChoice(name="max_cursed_energy", value="max_cursed_energy"),
+            SlashCommandChoice(name="discord_name", value="discord_name"),
+        ]
+    )
+    @slash_option(
+        name="value",
+        description="Value to update",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def update(self, ctx: SlashContext, name: str, criteria: str, value: str):
+        if not self.is_owner(name, str(ctx.author)):
+            await ctx.send("Sorry, you don't control " + name + "!")
+            return
+        
         match criteria:
             case "max_health":
                 value = int(value)
@@ -49,24 +119,108 @@ class Game:
                 self.json_players[name]["current_cursed_energy"] = value
 
         self.json_players[name][criteria] = value
-    
         self.players[name].info = self.json_players[name]
         self.update_players()
+        await ctx.send(name + " has been updated: " + criteria + " = " + str(value))
 
-    def add_tool(self, name, tool):
+    @update.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(
+            choices=self.get_owned_players(str(ctx.author))
+        )
+
+    # Add a cursed tool to your player!
+    @slash_command(name="add_tool", description="Add a cursed tool to your player!", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to give a tool",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    @slash_option(
+        name="tool",
+        description="Name of tool to give",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def add_tool(self, ctx: SlashContext, name: str, tool: str):
+        if not self.is_owner(name, str(ctx.author)):
+            await ctx.send("Sorry, you don't control " + name + "!")
+            return
         self.json_players[name]["cursed_tools"].append(tool)
         self.players[name].info = self.json_players[name]
         self.update_players()
+        await ctx.send(name + " now wields " + tool + "!")
 
-    def add_technique(self, name, technique):
+    @add_tool.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_players(str(ctx.author)))
+    @add_tool.autocomplete("tool")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_available_tools())
+
+    # Add a cursed technique to your player!
+    @slash_command(name="add_technique", description="Add a cursed technique to your player!", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to give a technique",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    @slash_option(
+        name="technique",
+        description="Name of technique to give",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def add_technique(self, ctx: SlashContext, name: str, technique: str):
+        if not self.is_owner(name, str(ctx.author)):
+            await ctx.send("Sorry, you don't control " + name + "!")
+            return
         self.json_players[name]["cursed_techniques"].append(technique)
         self.players[name].info = self.json_players[name]
         self.update_players()
+        await ctx.send(name + " now possesses " + technique + "!")
 
-    def remove_player(self, name):
+    @add_technique.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_players(str(ctx.author)))
+    @add_technique.autocomplete("technique")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_available_techniques())
+
+    # Remove a player from the Culling Games
+    @slash_command(name="remove", description="Remove a player from the Culling Games!", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to remove",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def remove(self, ctx: SlashContext, name: str):
+        if not self.is_owner(name, str(ctx.author)):
+            await ctx.send("Sorry, you don't control " + name + "!")
+            return
         del self.players[name]
         del self.json_players[name]
         self.update_players()
+        await ctx.send(name + " has officially left the Culling Games!")
+
+    @remove.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_players(str(ctx.author)))
+
+#                       #
+#   Helper Functions    #
+#                       #
+
+    def is_owner(self, name, user):
+        return user == self.json_players[name]["discord_name"]
 
     # For use in autocomplete lists
     def get_owned_players(self, user):
