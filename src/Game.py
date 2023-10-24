@@ -1,9 +1,7 @@
-import json
-from pathlib import Path
-from Player import Player
 from interactions import Client, Intents, slash_command, slash_option, OptionType, SlashContext, SlashCommandChoice, AutocompleteContext
 from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, spread_to_rows, Extension
 from Database import get_db
+from Helpers import *
 
 class Game(Extension):
 
@@ -15,6 +13,7 @@ class Game(Extension):
 #                   #
 
     # Show a player's stats
+    # TODO: make this look pretty & show tools/techniques
     @slash_command(name="show", description="Show a player's information", scopes=[1165369533863837726])
     @slash_option(
         name="player",
@@ -34,7 +33,7 @@ class Game(Extension):
     @show.autocomplete("player")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(
-            choices=self.get_all_players()
+            choices=get_all_players()
         )
 
     # Join the Culling Games
@@ -67,6 +66,10 @@ class Game(Extension):
         ]
     )
     async def join(self, ctx: SlashContext, name: str, max_health: int, max_ce: int):
+        if(max_health < 1):
+            await ctx.send("Sorry, but your max health must be at least 1!")
+            return
+
         self.connection.execute(
             "INSERT INTO players (discord_name, player_name, max_health, current_health, max_CE, current_CE, defense, attack_bonus)"
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -124,7 +127,7 @@ class Game(Extension):
         opt_type=OptionType.STRING
     )
     async def update(self, ctx: SlashContext, name: str, criteria: str, value: str):
-        if not self.is_owner(name, str(ctx.author)):
+        if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
         
@@ -139,6 +142,10 @@ class Game(Extension):
                 )
             case "max_health":
                 value = int(value)
+                if(value < 1):
+                    await ctx.send("Sorry, but your max health must be at least 1!")
+                    return
+                
                 self.connection.execute(
                     "UPDATE players "
                     "SET max_health = ?, current_health = ? "
@@ -161,7 +168,7 @@ class Game(Extension):
     @update.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(
-            choices=self.get_owned_players(str(ctx.author))
+            choices=get_owned_players(str(ctx.author))
         )
 
     # Add a cursed tool to your player!
@@ -181,7 +188,7 @@ class Game(Extension):
         autocomplete=True
     )
     async def add_tool(self, ctx: SlashContext, name: str, tool: str):
-        if not self.is_owner(name, str(ctx.author)):
+        if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
         self.connection.execute(
@@ -196,10 +203,10 @@ class Game(Extension):
 
     @add_tool.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_players(str(ctx.author)))
+        await ctx.send(get_owned_players(str(ctx.author)))
     @add_tool.autocomplete("tool")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_available_tools())
+        await ctx.send(get_available_tools())
 
     # Remove a cursed tool from your player
     @slash_command(name="remove_tool", description="Remove a cursed tool from your player", scopes=[1165369533863837726])
@@ -230,10 +237,10 @@ class Game(Extension):
 
     @remove_tool.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_players(str(ctx.author)))
+        await ctx.send(get_owned_players(str(ctx.author)))
     @remove_tool.autocomplete("tool")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_tools(ctx.kwargs.get("name")))
+        await ctx.send(get_owned_tools(ctx.kwargs.get("name")))
 
     # Add a cursed technique to your player!
     @slash_command(name="add_technique", description="Add a cursed technique to your player!", scopes=[1165369533863837726])
@@ -252,7 +259,7 @@ class Game(Extension):
         autocomplete=True
     )
     async def add_technique(self, ctx: SlashContext, name: str, technique: str):
-        if not self.is_owner(name, str(ctx.author)):
+        if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
         
@@ -269,10 +276,10 @@ class Game(Extension):
 
     @add_technique.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_players(str(ctx.author)))
+        await ctx.send(get_owned_players(str(ctx.author)))
     @add_technique.autocomplete("technique")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_available_techniques())
+        await ctx.send(get_available_techniques())
 
     # Remove a cursed tool from your player
     @slash_command(name="remove_technique", description="Remove a cursed technique from your player", scopes=[1165369533863837726])
@@ -303,10 +310,10 @@ class Game(Extension):
 
     @remove_technique.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_players(str(ctx.author)))
+        await ctx.send(get_owned_players(str(ctx.author)))
     @remove_technique.autocomplete("technique")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_techniques(ctx.kwargs.get("name")))
+        await ctx.send(get_owned_techniques(ctx.kwargs.get("name")))
 
 
     # Remove a player from the Culling Games
@@ -319,7 +326,7 @@ class Game(Extension):
         autocomplete=True
     )
     async def remove(self, ctx: SlashContext, name: str):
-        if not self.is_owner(name, str(ctx.author)):
+        if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
         self.connection.execute(
@@ -331,112 +338,5 @@ class Game(Extension):
 
     @remove.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(self.get_owned_players(str(ctx.author)))
-
-#                       #
-#   Helper Functions    #
-#                       #
-
-    def is_owner(self, name, user):
-        cur = self.connection.execute(
-            "SELECT * "
-            "FROM players "
-            "WHERE player_name = ? AND discord_name = ?",
-            (name, user)
-        )
-        return len(cur.fetchall()) > 0
-    
-#                       #
-# Autocomplete Returns  #
-#                       #
-
-    # For use in autocomplete lists
-    def get_owned_players(self, user):
-        cur = self.connection.execute(
-            "SELECT player_name "
-            "FROM players "
-            "WHERE discord_name = ?",
-            (user,)
-        )
-        ret = []
-        for name in cur:
-            ret.append({"name": name[0], "value": name[0]})
-
-        return ret
-    
-    # For use in autocomplete lists
-    def get_all_players(self):
-        cur = self.connection.execute(
-            "SELECT player_name "
-            "FROM players"
-        )
-        ret = []
-        for name in cur:
-            ret.append({"name": name[0], "value": name[0]})
-        return ret
-
-    # For use in autocomplete lists
-    def get_available_tools(self):
-        cur = self.connection.execute(
-            "SELECT tool_name "
-            "FROM tools "
-            "WHERE owner IS NULL"
-        )
-        tools = []
-        for tool in cur:
-            tools.append({"name": tool[0], "value": tool[0]})
-
-        return tools
-    
-    def get_owned_tools(self, name):
-        cur = self.connection.execute(
-            "SELECT tool_name "
-            "FROM tools "
-            "WHERE owner = ?",
-            (name,)
-        )
-        tools = []
-        for tool in cur:
-            tools.append({"name": tool[0], "value": tool[0]})
-        return tools
-    
-    # For use in autocomplete lists
-    def get_available_techniques(self):
-        cur = self.connection.execute(
-            "SELECT technique_name "
-            "FROM techniques "
-            "WHERE owner IS NULL"
-        )
-        techniques = []
-        for tech in cur:
-            techniques.append({"name": tech[0], "value": tech[0]})
-        return techniques
-    
-    # For use in autocomplete lists
-    def get_owned_techniques(self, name):
-        cur = self.connection.execute(
-            "SELECT technique_name "
-            "FROM techniques "
-            "WHERE owner = ?",
-            (name,)
-        )
-        techniques = []
-        for tech in cur:
-            techniques.append({"name": tech[0], "value": tech[0]})
-        return techniques
-
-def convert_CE_limit(limit):
-    match limit:
-        case "none":
-            return 0
-        case "low":
-            return 100
-        case "average":
-            return 750
-        case "high":
-            return 1150
-        case "large":
-            return 1550
-        case "immense":
-            return 1950
+        await ctx.send(get_owned_players(str(ctx.author)))
         
