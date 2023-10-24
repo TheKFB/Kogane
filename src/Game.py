@@ -3,6 +3,7 @@ from pathlib import Path
 from Player import Player
 from interactions import Client, Intents, slash_command, slash_option, OptionType, SlashContext, SlashCommandChoice, AutocompleteContext
 from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, spread_to_rows, Extension
+from Database import get_db
 
 class Game(Extension):
     # Dict of Player objects
@@ -15,8 +16,10 @@ class Game(Extension):
 
     json_techniques = {}
 
+
     def __init__(self, bot):
         self.load_players()
+        self.connection = get_db()
 
     def load_players(self):
         self.read_data()
@@ -39,7 +42,13 @@ class Game(Extension):
         autocomplete=True
     )
     async def show(self, ctx: SlashContext, player: str):
-        await ctx.send(str(json.dumps(self.json_players[player], indent=4)))
+        cur = self.connection.execute(
+            "SELECT * FROM players "
+            "WHERE player_name = ?",
+            (player,)
+        )
+        result = cur.fetchall()
+        await ctx.send(str(result))
     @show.autocomplete("player")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(
@@ -47,7 +56,7 @@ class Game(Extension):
         )
 
     # Join the Culling Games
-    # YO! I'm Kogane! The deathmatch known as the CUlling Game is underway inside of this barrier! Once you step inside, you're a player too! Knowing that, will you come inside anyway?
+    # YO! I'm Kogane! The deathmatch known as the Culling Game is underway inside of this barrier! Once you step inside, you're a player too! Knowing that, will you come inside anyway?
     @slash_command(name="join", description="Join the Culling Games!", scopes=[1165369533863837726])
     @slash_option(
         name="name",
@@ -55,28 +64,56 @@ class Game(Extension):
         required=True,
         opt_type=OptionType.STRING
     )
-    async def join(self, ctx: SlashContext, name: str):
-        initial_d = {"discord_name": str(ctx.author), 
-                     "points_remaining": 13,
-                     "cursed_tools": [],
-                     "cursed_techniques": []}
-        player = Player(name, initial_d)
-        self.players[name] = player
-        self.json_players[name] = initial_d
-        self.update_players()
-        comp: list[ActionRow] = [
-            ActionRow(
-                Button(
-                    style=ButtonStyle.GREEN,
-                    label="Click Me",
-                ),
-                Button(
-                    style=ButtonStyle.GREEN,
-                    label="Click Me Too",
-                )
-            )
+    @slash_option(
+        name="max_health",
+        description="Max health",
+        required=True,
+        opt_type=OptionType.INTEGER
+    )
+    @slash_option(
+        name="max_ce",
+        description="CE Reserves",
+        required=True,
+        opt_type=OptionType.INTEGER,
+        choices = [
+            SlashCommandChoice(name="None", value = 0),
+            SlashCommandChoice(name="Low", value = 100),
+            SlashCommandChoice(name="Average", value = 750),
+            SlashCommandChoice(name="High", value = 1150),
+            SlashCommandChoice(name="Large", value = 1550),
+            SlashCommandChoice(name="Immense", value = 1950)
         ]
-        await ctx.send(" has officially joined the Culling Games!", components=comp)
+    )
+    async def join(self, ctx: SlashContext, name: str, max_health: int, max_ce: int):
+        self.connection.execute(
+            "INSERT INTO players (discord_name, player_name, max_health, current_health, max_CE, current_CE, defense, attack_bonus)"
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(ctx.author), name, max_health, max_health, max_ce, max_ce, 10, 0)
+        )
+        self.connection.commit()
+        msg = name + " has officially joined the Culling Games!"
+        await ctx.send(msg)
+        # initial_d = {"discord_name": str(ctx.author), 
+        #              "points_remaining": 13,
+        #              "cursed_tools": [],
+        #              "cursed_techniques": []}
+        # player = Player(name, initial_d)
+        # self.players[name] = player
+        # self.json_players[name] = initial_d
+        # self.update_players()
+        # comp: list[ActionRow] = [
+        #     ActionRow(
+        #         Button(
+        #             style=ButtonStyle.GREEN,
+        #             label="Click Me",
+        #         ),
+        #         Button(
+        #             style=ButtonStyle.GREEN,
+        #             label="Click Me Too",
+        #         )
+        #     )
+        # ]
+        # await ctx.send(" has officially joined the Culling Games!", components=comp)
 
     # Update a Player
     @slash_command(name="update", description="Update your player", scopes=[1165369533863837726])
@@ -94,7 +131,7 @@ class Game(Extension):
         opt_type=OptionType.STRING,
         choices=[
             SlashCommandChoice(name="max_health", value="max_health"),
-            SlashCommandChoice(name="max_cursed_energy", value="max_cursed_energy"),
+            SlashCommandChoice(name="max_CE", value="max_CE"),
             SlashCommandChoice(name="discord_name", value="discord_name"),
         ]
     )
@@ -102,8 +139,7 @@ class Game(Extension):
         name="value",
         description="Value to update",
         required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
+        opt_type=OptionType.STRING
     )
     async def update(self, ctx: SlashContext, name: str, criteria: str, value: str):
         if not self.is_owner(name, str(ctx.author)):
@@ -111,17 +147,33 @@ class Game(Extension):
             return
         
         match criteria:
+            case "discord_name":
+                self.connection.execute(
+                    "UPDATE players "
+                    "SET discord_name = ? "
+                    "WHERE player_name = ?",
+                    (value, name)
+                )
             case "max_health":
                 value = int(value)
-                self.json_players[name]["current_health"] = value
-            case "max_cursed_energy":
+                self.connection.execute(
+                    "UPDATE players "
+                    "SET max_health = ?, current_health = ? "
+                    "WHERE player_name = ?",
+                    (value, value, name)
+                )
+            case "max_CE":
                 value = convert_CE_limit(value)
-                self.json_players[name]["current_cursed_energy"] = value
-
-        self.json_players[name][criteria] = value
-        self.players[name].info = self.json_players[name]
-        self.update_players()
-        await ctx.send(name + " has been updated: " + criteria + " = " + str(value))
+                self.connection.execute(
+                    "UPDATE players "
+                    "SET max_CE = ?, current_CE = ? "
+                    "WHERE player_name = ?",
+                    (value, value, name)
+                )
+        
+        self.connection.commit()
+        msg = name + " has been updated: " + criteria + " = " + str(value)
+        await ctx.send(msg)
 
     @update.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
@@ -220,19 +272,38 @@ class Game(Extension):
 #                       #
 
     def is_owner(self, name, user):
-        return user == self.json_players[name]["discord_name"]
+        cur = self.connection.execute(
+            "SELECT * "
+            "FROM players "
+            "WHERE player_name = ? AND discord_name = ?",
+            (name, user)
+        )
+        return len(cur.fetchall()) > 0
 
     # For use in autocomplete lists
     def get_owned_players(self, user):
-        choices = []
-        for name in self.json_players:
-            if self.is_owner(name, user):
-                choices.append({"name": name, "value": name})
-        return choices
+        cur = self.connection.execute(
+            "SELECT player_name "
+            "FROM players "
+            "WHERE discord_name = ?",
+            (user,)
+        )
+        ret = []
+        for name in cur:
+            ret.append({"name": name[0], "value": name[0]})
+
+        return ret
     
     # For use in autocomplete lists
     def get_all_players(self):
-        return [{"name": name, "value": name} for name in self.json_players]
+        cur = self.connection.execute(
+            "SELECT player_name "
+            "FROM players"
+        )
+        ret = []
+        for name in cur:
+            ret.append({"name": name[0], "value": name[0]})
+        return ret
 
     # For use in autocomplete lists
     def get_available_tools(self):

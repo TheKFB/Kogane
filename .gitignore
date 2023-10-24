@@ -1,3 +1,4 @@
 token.txt
 .vs/
 __pycache__/
+sql/database.db
