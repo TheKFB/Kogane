@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sqlite3 -batch -line database.db 'SELECT * FROM players'
+sqlite3 -batch -line database.db 'SELECT * FROM techniques'
+sqlite3 -batch -line database.db 'SELECT * FROM tools'

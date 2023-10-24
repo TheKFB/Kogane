@@ -15,7 +15,7 @@ CREATE TABLE players(
 CREATE TABLE techniques(
     technique_name VARCHAR(100) NOT NULL,
     CE_cost INTEGER NOT NULL,
-    owner VARCHAR(100) NOT NULL,
+    owner VARCHAR(100),
     FOREIGN KEY (owner) REFERENCES players(player_name),
     PRIMARY KEY(technique_name)
 );
@@ -24,8 +24,8 @@ CREATE TABLE tools(
     tool_name VARCHAR(100) NOT NULL,
     point_cost INTEGER NOT NULL,
     damage INTEGER NOT NULL,
-    technique_name VARCHAR(100) NOT NULL,
-    owner VARCHAR(40) NOT NULL,
+    technique_name VARCHAR(100),
+    owner VARCHAR(40),
     FOREIGN KEY (technique_name) REFERENCES techniques(technique_name),
     FOREIGN KEY (owner) REFERENCES players(player_name),
     PRIMARY KEY(tool_name)

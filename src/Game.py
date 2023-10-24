@@ -6,27 +6,9 @@ from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, sprea
 from Database import get_db
 
 class Game(Extension):
-    # Dict of Player objects
-    # Format: "name": Player_Object
-    players = {}
-
-    json_players = {}
-
-    json_tools = {}
-
-    json_techniques = {}
-
 
     def __init__(self, bot):
-        self.load_players()
         self.connection = get_db()
-
-    def load_players(self):
-        self.read_data()
-
-        for name, info in self.json_players.items():
-            player = Player(name, info)
-            self.players[name] = player
 
 #                   #
 #   Slash Commands  #
@@ -146,6 +128,7 @@ class Game(Extension):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
         
+        # You can't use query substitution for field names, only values
         match criteria:
             case "discord_name":
                 self.connection.execute(
@@ -201,10 +184,15 @@ class Game(Extension):
         if not self.is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
-        self.json_players[name]["cursed_tools"].append(tool)
-        self.players[name].info = self.json_players[name]
-        self.update_players()
-        await ctx.send(name + " now wields " + tool + "!")
+        self.connection.execute(
+            "UPDATE tools "
+            "SET owner = ? "
+            "WHERE tool_name = ?",
+            (name, tool)
+        )
+        self.connection.commit()
+        msg = name + " now wields " + tool + "!"
+        await ctx.send(msg)
 
     @add_tool.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
@@ -212,6 +200,40 @@ class Game(Extension):
     @add_tool.autocomplete("tool")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(self.get_available_tools())
+
+    # Remove a cursed tool from your player
+    @slash_command(name="remove_tool", description="Remove a cursed tool from your player", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to remove a tool from",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    @slash_option(
+        name="tool",
+        description="Name of tool to remove",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def remove_tool(self, ctx: SlashContext, name:str, tool:str):
+        self.connection.execute(
+            "UPDATE tools "
+            "SET owner = NULL "
+            "WHERE tool_name = ?",
+            (tool,)
+        )
+        self.connection.commit()
+        msg = name + " no longer wields " + tool
+        await ctx.send(msg)
+
+    @remove_tool.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_players(str(ctx.author)))
+    @remove_tool.autocomplete("tool")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_tools(ctx.kwargs.get("name")))
 
     # Add a cursed technique to your player!
     @slash_command(name="add_technique", description="Add a cursed technique to your player!", scopes=[1165369533863837726])
@@ -233,10 +255,17 @@ class Game(Extension):
         if not self.is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
-        self.json_players[name]["cursed_techniques"].append(technique)
-        self.players[name].info = self.json_players[name]
-        self.update_players()
-        await ctx.send(name + " now possesses " + technique + "!")
+        
+        self.connection.execute(
+            "UPDATE techniques "
+            "SET owner = ? "
+            "WHERE technique_name = ?",
+            (name, technique)
+        )
+        self.connection.commit()
+
+        msg = name + " now possesses " + technique + "!"
+        await ctx.send(msg)
 
     @add_technique.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
@@ -244,6 +273,41 @@ class Game(Extension):
     @add_technique.autocomplete("technique")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(self.get_available_techniques())
+
+    # Remove a cursed tool from your player
+    @slash_command(name="remove_technique", description="Remove a cursed technique from your player", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to remove a technique from",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    @slash_option(
+        name="technique",
+        description="Name of technique to remove",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def remove_technique(self, ctx: SlashContext, name: str, technique: str):
+        self.connection.execute(
+            "UPDATE techniques "
+            "SET owner = NULL "
+            "WHERE technique_name = ?",
+            (technique,)
+        )
+        self.connection.commit()
+        msg = name + " no longer posesses " + technique
+        await ctx.send(msg)
+
+    @remove_technique.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_players(str(ctx.author)))
+    @remove_technique.autocomplete("technique")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(self.get_owned_techniques(ctx.kwargs.get("name")))
+
 
     # Remove a player from the Culling Games
     @slash_command(name="remove", description="Remove a player from the Culling Games!", scopes=[1165369533863837726])
@@ -258,9 +322,11 @@ class Game(Extension):
         if not self.is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
-        del self.players[name]
-        del self.json_players[name]
-        self.update_players()
+        self.connection.execute(
+            "DELETE FROM PLAYERS "
+            "WHERE player_name = ?",
+            (name,)
+        )
         await ctx.send(name + " has officially left the Culling Games!")
 
     @remove.autocomplete("name")
@@ -279,6 +345,10 @@ class Game(Extension):
             (name, user)
         )
         return len(cur.fetchall()) > 0
+    
+#                       #
+# Autocomplete Returns  #
+#                       #
 
     # For use in autocomplete lists
     def get_owned_players(self, user):
@@ -307,79 +377,53 @@ class Game(Extension):
 
     # For use in autocomplete lists
     def get_available_tools(self):
-        used_tools = []
-        for player in self.json_players:
-            for tool in self.json_players[player]["cursed_tools"]:
-                used_tools.append(tool)
+        cur = self.connection.execute(
+            "SELECT tool_name "
+            "FROM tools "
+            "WHERE owner IS NULL"
+        )
+        tools = []
+        for tool in cur:
+            tools.append({"name": tool[0], "value": tool[0]})
 
-        available_tools = []
-        for tool in self.json_tools:
-            if tool not in used_tools:
-                available_tools.append({"name": tool, "value": tool})
-
-        return available_tools
+        return tools
+    
+    def get_owned_tools(self, name):
+        cur = self.connection.execute(
+            "SELECT tool_name "
+            "FROM tools "
+            "WHERE owner = ?",
+            (name,)
+        )
+        tools = []
+        for tool in cur:
+            tools.append({"name": tool[0], "value": tool[0]})
+        return tools
     
     # For use in autocomplete lists
     def get_available_techniques(self):
-        used_techniques = []
-        for player in self.json_players:
-            for technique in self.json_players[player]["cursed_techniques"]:
-                used_techniques.append(technique)
-
-        # Cursed tools with a cursed technique have the technique that is the same name as the tool
-        # This makes sure you can't add a tool's technique as a player technique
-        cursed_tools = [x for x in self.json_tools]
-        available_techniques = []
-        for technique in self.json_techniques:
-            if technique not in used_techniques and technique not in cursed_tools:
-                available_techniques.append({"name": technique, "value": technique})
-
-        return available_techniques
+        cur = self.connection.execute(
+            "SELECT technique_name "
+            "FROM techniques "
+            "WHERE owner IS NULL"
+        )
+        techniques = []
+        for tech in cur:
+            techniques.append({"name": tech[0], "value": tech[0]})
+        return techniques
     
-    # Load .json files into game
-    def read_data(self):
-        cur_path = Path(__file__).parent
-        players_path = cur_path / "../json/players.json"
-        f = open(players_path, "r")
-        self.json_players = json.loads(f.read())
-        f.close()
-
-        tools_path = cur_path / "../json/cursed_warehouse.json"
-        f = open(tools_path, "r")
-        self.json_tools = json.loads(f.read())
-        f.close()
-
-        techniques_path = cur_path / "../json/cursed_techniques.json"
-        f = open(techniques_path, "r")
-        self.json_techniques = json.loads(f.read())
-        f.close()
-    
-    # Updates players.json
-    def update_players(self):
-        self.update_data("players")
-
-    # Updates cursed_warehouse.json
-    def update_tools(self):
-        self.update_data("cursed_warehouse")
-
-    # Updates cursed_techniques.json
-    def update_techniques(self):
-        self.update_data("cursed_techniques")
-    
-    # Updates an arbitrary JSON file
-    def update_data(self, name):
-        cur_path = Path(__file__).parent
-        file = str(name) + ".json"
-        path = cur_path / "../json/" / file
-        f = open(path, "w")
-        match name:
-            case "players":
-                f.write(json.dumps(self.json_players, sort_keys=True, indent=4))
-            case "cursed_warehouse":
-                f.write(json.dumps(self.json_tools, sort_keys=True, indent=4))
-            case "cursed_techniques":
-                f.write(json.dumps(self.json_techniques, sort_keys=True, indent=4))
-        f.close()
+    # For use in autocomplete lists
+    def get_owned_techniques(self, name):
+        cur = self.connection.execute(
+            "SELECT technique_name "
+            "FROM techniques "
+            "WHERE owner = ?",
+            (name,)
+        )
+        techniques = []
+        for tech in cur:
+            techniques.append({"name": tech[0], "value": tech[0]})
+        return techniques
 
 def convert_CE_limit(limit):
     match limit:
