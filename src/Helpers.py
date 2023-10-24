@@ -1,6 +1,14 @@
 from Database import get_db
 
+# Used when configuring a connection to have cursors return dicts instead of lists
+def dict_factory(cur, row):
+    d = {}
+    for idx, col in enumerate(cur.description):
+        d[col[0]] = row[idx]
+    return d
+
 connection = get_db()
+connection.row_factory = dict_factory
 
 #                       #
 #   Helper Functions    #
@@ -23,7 +31,7 @@ def deal_damage(name, damage):
         "WHERE player_name = ?",
         (name,)
     )
-    current_health = cur.fetchone()[0] - damage
+    current_health = cur.fetchone()["current_health"] - damage
 
     cur = connection.execute(
         "UPDATE players "
@@ -40,7 +48,8 @@ def verify_cursed_energy(name, amount):
         "WHERE player_name = ?",
         (name,)
     )
-    current_energy = cur.fetchone()[0]
+    current_energy = cur.fetchone()
+    current_energy = current_energy["current_CE"]
     return current_energy >= amount
 
 def drain_cursed_energy(name, amount):
@@ -50,7 +59,7 @@ def drain_cursed_energy(name, amount):
         "WHERE player_name = ?",
         (name,)
     )
-    new_energy = cur.fetchone()[0] - amount
+    new_energy = cur.fetchone()["current_CE"] - amount
 
     connection.execute(
         "UPDATE players "
@@ -88,7 +97,7 @@ def get_owned_players(user):
     )
     ret = []
     for name in cur:
-        ret.append({"name": name[0], "value": name[0]})
+        ret.append({"name": name["player_name"], "value": name["player_name"]})
 
     return ret
 
@@ -99,7 +108,7 @@ def get_all_players():
     )
     ret = []
     for name in cur:
-        ret.append({"name": name[0], "value": name[0]})
+        ret.append({"name": name["player_name"], "value": name["player_name"]})
     return ret
 
 def get_available_tools():
@@ -110,7 +119,7 @@ def get_available_tools():
     )
     tools = []
     for tool in cur:
-        tools.append({"name": tool[0], "value": tool[0]})
+        tools.append({"name": tool["tool_name"], "value": tool["tool_name"]})
 
     return tools
 
@@ -123,7 +132,7 @@ def get_owned_tools(name):
     )
     tools = []
     for tool in cur:
-        tools.append({"name": tool[0], "value": tool[0]})
+        tools.append({"name": tool["tool_name"], "value": tool["tool_name"]})
     return tools
 
 def get_available_techniques():
@@ -134,7 +143,7 @@ def get_available_techniques():
     )
     techniques = []
     for tech in cur:
-        techniques.append({"name": tech[0], "value": tech[0]})
+        techniques.append({"name": tech["technique_name"], "value": tech["technique_name"]})
     return techniques
 
 
@@ -147,5 +156,5 @@ def get_owned_techniques(name):
     )
     techniques = []
     for tech in cur:
-        techniques.append({"name": tech[0], "value": tech[0]})
+        techniques.append({"name": tech["technique_name"], "value": tech["technique_name"]})
     return techniques

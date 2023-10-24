@@ -7,6 +7,7 @@ class Game(Extension):
 
     def __init__(self, bot):
         self.connection = get_db()
+        self.connection.row_factory = dict_factory
 
 #                   #
 #   Slash Commands  #
@@ -28,8 +29,31 @@ class Game(Extension):
             "WHERE player_name = ?",
             (player,)
         )
-        result = cur.fetchall()
-        await ctx.send(str(result))
+        result = cur.fetchone()
+
+        cur = connection.execute(
+            "SELECT tool_name "
+            "FROM tools "
+            "WHERE owner = ?",
+            (player,)
+        )
+        tools = cur.fetchall()
+
+        cur = connection.execute(
+            "SELECT technique_name "
+            "FROM techniques "
+            "WHERE owner = ?",
+            (player,)
+        )
+        techniques = cur.fetchall()
+
+        msg = f"Player: {result['player_name']}\n"
+        msg += f"Controlled by: {result['discord_name']}\n"
+        msg += f"Health: {result['current_health']}/{result['max_health']}\n"
+        msg += f"Cursed Energy: {result['current_CE']}/{result['max_CE']}\n"
+        msg += f"Defense: {result['defense']}\n"
+        msg += f"Attack Bonus: {result['attack_bonus']}\n"
+        await ctx.send(msg)
     @show.autocomplete("player")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(

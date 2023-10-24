@@ -8,6 +8,7 @@ class Combat(Extension):
 
     def __init__(self, bot):
         self.connection = get_db()
+        self.connection.row_factory = dict_factory
 
     @slash_command(name="attack", description="Attack another player!", scopes=[1165369533863837726])
     @slash_option(
@@ -56,13 +57,15 @@ class Combat(Extension):
             await ctx.send(msg)
             return
         
+        drain_cursed_energy(player, cursed_energy)
+        
         cur = self.connection.execute(
             "SELECT attack_bonus "
             "FROM players "
             "WHERE player_name = ?",
             (player,)
         )
-        attack_bonus = cur.fetchone()[0]
+        attack_bonus = cur.fetchone()["attack_bonus"]
         roll_value = roll("1d20")[0]
         total = roll_value + attack_bonus
 
@@ -72,7 +75,7 @@ class Combat(Extension):
             "WHERE player_name = ?",
             (target,)
         )
-        target_defense = cur.fetchone()[0]
+        target_defense = cur.fetchone()["defense"]
         success = total > target_defense
         msg = player + " tries to " + description
 
@@ -91,13 +94,12 @@ class Combat(Extension):
                 (weapon,)
             )
 
-            damage += cur.fetchone()[0]
+            damage += cur.fetchone()["damage"]
 
         # 25 CE = 10 damage
         damage += cursed_energy / 2.5
 
         deal_damage(target, damage)
-        drain_cursed_energy(player, cursed_energy)
         msg = msg + ", and succeeds!"
         await ctx.send(msg)
         
