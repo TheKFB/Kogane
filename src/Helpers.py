@@ -21,7 +21,31 @@ def is_owner(name, user):
         "WHERE player_name = ? AND discord_name = ?",
         (name, user)
     )
-    return len(cur.fetchall()) > 0
+    result = cur.fetchall()
+    cur.close()
+    return len(result) > 0
+
+def current_player(user):
+    cur = connection.execute(
+        "SELECT player_name "
+        "FROM active_players "
+        "WHERE discord_name = ?",
+        (user,)
+    )
+    result = cur.fetchone()["player_name"]
+    cur.close()
+    return result
+
+def get_player_fight(player):
+    cur = connection.execute(
+        "SELECT fight_name "
+        "FROM active_players "
+        "WHERE player_name = ?",
+        (player,)
+    )
+    result = cur.fetchone()["fight_name"]
+    cur.close()
+    return result
 
 # TODO: implement damage reduction
 def deal_damage(name, damage):
@@ -32,6 +56,7 @@ def deal_damage(name, damage):
         (name,)
     )
     current_health = cur.fetchone()["current_health"] - damage
+    cur.close()
 
     cur = connection.execute(
         "UPDATE players "
@@ -40,6 +65,7 @@ def deal_damage(name, damage):
         (current_health, name)
     )
     connection.commit()
+    cur.close()
 
 def verify_cursed_energy(name, amount):
     cur = connection.execute(
@@ -49,6 +75,7 @@ def verify_cursed_energy(name, amount):
         (name,)
     )
     current_energy = cur.fetchone()
+    cur.close()
     current_energy = current_energy["current_CE"]
     return current_energy >= amount
 
@@ -60,6 +87,7 @@ def drain_cursed_energy(name, amount):
         (name,)
     )
     new_energy = cur.fetchone()["current_CE"] - amount
+    cur.close()
 
     connection.execute(
         "UPDATE players "
@@ -95,10 +123,8 @@ def get_owned_players(user):
         "WHERE discord_name = ?",
         (user,)
     )
-    ret = []
-    for name in cur:
-        ret.append({"name": name["player_name"], "value": name["player_name"]})
-
+    ret = [name["player_name"] for name in cur]
+    cur.close()
     return ret
 
 def get_all_players():
@@ -106,9 +132,8 @@ def get_all_players():
         "SELECT player_name "
         "FROM players"
     )
-    ret = []
-    for name in cur:
-        ret.append({"name": name["player_name"], "value": name["player_name"]})
+    ret = [name["player_name"] for name in cur]
+    cur.close()
     return ret
 
 def get_available_tools():
@@ -117,10 +142,8 @@ def get_available_tools():
         "FROM tools "
         "WHERE owner IS NULL"
     )
-    tools = []
-    for tool in cur:
-        tools.append({"name": tool["tool_name"], "value": tool["tool_name"]})
-
+    tools = [tool["tool_name"] for tool in cur]
+    cur.close()
     return tools
 
 def get_owned_tools(name):
@@ -130,9 +153,8 @@ def get_owned_tools(name):
         "WHERE owner = ?",
         (name,)
     )
-    tools = []
-    for tool in cur:
-        tools.append({"name": tool["tool_name"], "value": tool["tool_name"]})
+    tools = [tool["tool_name"] for tool in cur]
+    cur.close()
     return tools
 
 def get_available_techniques():
@@ -141,9 +163,8 @@ def get_available_techniques():
         "FROM techniques "
         "WHERE owner IS NULL"
     )
-    techniques = []
-    for tech in cur:
-        techniques.append({"name": tech["technique_name"], "value": tech["technique_name"]})
+    techniques = [technique["technique_name"] for technique in cur]
+    cur.close()
     return techniques
 
 
@@ -154,7 +175,17 @@ def get_owned_techniques(name):
         "WHERE owner = ?",
         (name,)
     )
-    techniques = []
-    for tech in cur:
-        techniques.append({"name": tech["technique_name"], "value": tech["technique_name"]})
+    techniques = [technique["technique_name"] for technique in cur]
+    cur.close()
     return techniques
+
+def get_players_in_fight(name):
+    cur = connection.execute(
+        "SELECT player_name "
+        "FROM active_players "
+        "WHERE fight_name = ?",
+        (name,)
+    )
+    players = [player["player_name"] for player in cur]
+    cur.close()
+    return players

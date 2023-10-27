@@ -30,6 +30,7 @@ class Game(Extension):
             (player,)
         )
         result = cur.fetchone()
+        cur.close()
 
         cur = connection.execute(
             "SELECT tool_name "
@@ -38,6 +39,7 @@ class Game(Extension):
             (player,)
         )
         tools = cur.fetchall()
+        cur.close()
 
         cur = connection.execute(
             "SELECT technique_name "
@@ -46,6 +48,7 @@ class Game(Extension):
             (player,)
         )
         techniques = cur.fetchall()
+        cur.close()
 
         msg = f"Player: {result['player_name']}\n"
         msg += f"Controlled by: {result['discord_name']}\n"
@@ -95,9 +98,9 @@ class Game(Extension):
             return
 
         self.connection.execute(
-            "INSERT INTO players (discord_name, player_name, max_health, current_health, max_CE, current_CE, defense, attack_bonus)"
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (str(ctx.author), name, max_health, max_health, max_ce, max_ce, 10, 0)
+            "INSERT INTO players (discord_name, player_name, max_health, current_health, max_CE, current_CE) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (str(ctx.author), name, max_health, max_health, max_ce, max_ce)
         )
         self.connection.commit()
         msg = name + " has officially joined the Culling Games!"
@@ -127,13 +130,6 @@ class Game(Extension):
     # Update a Player
     @slash_command(name="update", description="Update your player", scopes=[1165369533863837726])
     @slash_option(
-        name="name",
-        description="Name of the character to update",
-        required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
-    )
-    @slash_option(
         name="criteria",
         description="Criteria to update",
         required=True,
@@ -150,7 +146,8 @@ class Game(Extension):
         required=True,
         opt_type=OptionType.STRING
     )
-    async def update(self, ctx: SlashContext, name: str, criteria: str, value: str):
+    async def update(self, ctx: SlashContext, criteria: str, value: str):
+        name = current_player(str(ctx.author))
         if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
@@ -189,21 +186,8 @@ class Game(Extension):
         msg = name + " has been updated: " + criteria + " = " + str(value)
         await ctx.send(msg)
 
-    @update.autocomplete("name")
-    async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(
-            choices=get_owned_players(str(ctx.author))
-        )
-
     # Add a cursed tool to your player!
     @slash_command(name="add_tool", description="Add a cursed tool to your player!", scopes=[1165369533863837726])
-    @slash_option(
-        name="name",
-        description="Name of player to give a tool",
-        required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
-    )
     @slash_option(
         name="tool",
         description="Name of tool to give",
@@ -211,7 +195,8 @@ class Game(Extension):
         opt_type=OptionType.STRING,
         autocomplete=True
     )
-    async def add_tool(self, ctx: SlashContext, name: str, tool: str):
+    async def add_tool(self, ctx: SlashContext, tool: str):
+        name = current_player(str(ctx.author))
         if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
@@ -225,9 +210,6 @@ class Game(Extension):
         msg = name + " now wields " + tool + "!"
         await ctx.send(msg)
 
-    @add_tool.autocomplete("name")
-    async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(get_owned_players(str(ctx.author)))
     @add_tool.autocomplete("tool")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(get_available_tools())
@@ -235,20 +217,14 @@ class Game(Extension):
     # Remove a cursed tool from your player
     @slash_command(name="remove_tool", description="Remove a cursed tool from your player", scopes=[1165369533863837726])
     @slash_option(
-        name="name",
-        description="Name of player to remove a tool from",
-        required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
-    )
-    @slash_option(
         name="tool",
         description="Name of tool to remove",
         required=True,
         opt_type=OptionType.STRING,
         autocomplete=True
     )
-    async def remove_tool(self, ctx: SlashContext, name:str, tool:str):
+    async def remove_tool(self, ctx: SlashContext, tool:str):
+        name = current_player(str(ctx.author))
         self.connection.execute(
             "UPDATE tools "
             "SET owner = NULL "
@@ -259,9 +235,6 @@ class Game(Extension):
         msg = name + " no longer wields " + tool
         await ctx.send(msg)
 
-    @remove_tool.autocomplete("name")
-    async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(get_owned_players(str(ctx.author)))
     @remove_tool.autocomplete("tool")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(get_owned_tools(ctx.kwargs.get("name")))
@@ -269,20 +242,14 @@ class Game(Extension):
     # Add a cursed technique to your player!
     @slash_command(name="add_technique", description="Add a cursed technique to your player!", scopes=[1165369533863837726])
     @slash_option(
-        name="name",
-        description="Name of player to give a technique",
-        required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
-    )
-    @slash_option(
         name="technique",
         description="Name of technique to give",
         required=True,
         opt_type=OptionType.STRING,
         autocomplete=True
     )
-    async def add_technique(self, ctx: SlashContext, name: str, technique: str):
+    async def add_technique(self, ctx: SlashContext, technique: str):
+        name = current_player(str(ctx.author))
         if not is_owner(name, str(ctx.author)):
             await ctx.send("Sorry, you don't control " + name + "!")
             return
@@ -298,9 +265,6 @@ class Game(Extension):
         msg = name + " now possesses " + technique + "!"
         await ctx.send(msg)
 
-    @add_technique.autocomplete("name")
-    async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(get_owned_players(str(ctx.author)))
     @add_technique.autocomplete("technique")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(get_available_techniques())
@@ -308,20 +272,14 @@ class Game(Extension):
     # Remove a cursed tool from your player
     @slash_command(name="remove_technique", description="Remove a cursed technique from your player", scopes=[1165369533863837726])
     @slash_option(
-        name="name",
-        description="Name of player to remove a technique from",
-        required=True,
-        opt_type=OptionType.STRING,
-        autocomplete=True
-    )
-    @slash_option(
         name="technique",
         description="Name of technique to remove",
         required=True,
         opt_type=OptionType.STRING,
         autocomplete=True
     )
-    async def remove_technique(self, ctx: SlashContext, name: str, technique: str):
+    async def remove_technique(self, ctx: SlashContext, technique: str):
+        name = current_player(str(ctx.author))
         self.connection.execute(
             "UPDATE techniques "
             "SET owner = NULL "
@@ -332,13 +290,33 @@ class Game(Extension):
         msg = name + " no longer posesses " + technique
         await ctx.send(msg)
 
-    @remove_technique.autocomplete("name")
-    async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send(get_owned_players(str(ctx.author)))
     @remove_technique.autocomplete("technique")
     async def autocomplete(self, ctx: AutocompleteContext):
         await ctx.send(get_owned_techniques(ctx.kwargs.get("name")))
 
+    # Switch active player
+    @slash_command(name="change_player", description="Change which player you are using", scopes=[1165369533863837726])
+    @slash_option(
+        name="name",
+        description="Name of player to switch to",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def change_player(self, ctx: SlashContext, name: str):
+        self.connection.execute(
+            "UPDATE active_players "
+            "SET player_name = ? "
+            "WHERE discord_name = ?",
+            (name, str(ctx.author))
+        )
+        self.connection.commit()
+        msg = f"Now controlling {name}"
+        await ctx.send(msg)
+
+    @change_player.autocomplete("name")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send(get_owned_players(str(ctx.author)))
 
     # Remove a player from the Culling Games
     @slash_command(name="remove", description="Remove a player from the Culling Games!", scopes=[1165369533863837726])
