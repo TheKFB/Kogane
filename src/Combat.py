@@ -7,11 +7,11 @@ from FightTracker import *
 
 class Combat(Extension):
 
-    fights = {}
 
     def __init__(self, bot):
         self.connection = get_db()
         self.connection.row_factory = dict_factory
+        bot.fights = {}
 
     # Start a fight
     @slash_command(name="start_fight", description="Begin a fight!", scopes=[1165369533863837726])
@@ -23,7 +23,7 @@ class Combat(Extension):
     )
     async def start_fight(self, ctx: SlashContext, name: str):
         fight = FightTracker()
-        self.fights[name] = fight
+        self.bot.fights[name] = fight
         msg = f"The battle of {name} has begun!"
         await ctx.send(msg)
 
@@ -48,13 +48,23 @@ class Combat(Extension):
         self.connection.commit()
 
         initiative = roll("1d10")[0]
-        self.fights[name].join_fight(player, initiative)
+        self.bot.fights[name].join_fight(player, initiative)
         msg = f"{player} has joined the battle of {name} at initiative count {initiative}!"
         await ctx.send(msg)
 
     @join_fight.autocomplete("name")
     async def autocomplete(self, ctx: AutocompleteContext):
-        await ctx.send([x for x in self.fights])
+        await ctx.send([x for x in self.bot.fights])
+
+    # Advance the turn order
+    @slash_command(name="end_turn", description="End your turn", scopes=[1165369533863837726])
+    async def end_turn(self, ctx: SlashContext):
+        player = current_player(str(ctx.author))
+        fight = get_player_fight(player)
+        self.bot.fights[fight].next_turn()
+        new_player = self.bot.fights[fight].current_player()
+        msg = f"It is now {new_player}'s turn!"
+        await ctx.send(msg)
 
     # Attack a player
     @slash_command(name="attack", description="Attack another player!", scopes=[1165369533863837726])
@@ -98,7 +108,7 @@ class Combat(Extension):
             await ctx.send(msg)
             return
         
-        drain_cursed_energy(attacker, cursed_energy)
+        modify_cursed_energy(attacker, -cursed_energy)
         
         cur = self.connection.execute(
             "SELECT attack_bonus "
@@ -200,7 +210,7 @@ class Combat(Extension):
             await ctx.send(msg)
             return
 
-        drain_cursed_energy(user, cost)
+        modify_cursed_energy(user, -cost)
         damage = roll(res["damage"])
         deal_damage(target, damage)
 
@@ -219,7 +229,7 @@ class Combat(Extension):
         for mod in results:
             value = roll(mod["modified_value"])
             duration = roll(mod["duration"])
-            self.fights[fight_name].add_buff(target, mod["modified_field"], value, duration)
+            self.bot.fights[fight_name].add_modifier(target, technique, mod["modified_field"], value, duration)
 
         msg = f"{user} activates their cursed technique: {technique} on {target}!"
         await ctx.send(msg)
@@ -236,7 +246,7 @@ class Combat(Extension):
         await ctx.send(get_owned_techniques(user))
 
     #reinforce with CE
-    @slash_command(name="reinforce_defense", description="Imbue yourself with cursed energy to increase your defense")
+    @slash_command(name="reinforce_defense", description="Imbue yourself with cursed energy to increase your defense", scopes=[1165369533863837726])
     @slash_option(
         name="cursed_energy",
         description="Amount of cursed energy to imbue (multiple of 25)",
@@ -247,7 +257,7 @@ class Combat(Extension):
         player = current_player(str(ctx.author))
         # 25 CE = +2 defense, verify CE is a multiple of 25
         if cursed_energy % 25 != 0 or cursed_energy < 0 :
-            msg = "Sorry, you put in " + str(cursed_energy) + " cursed energy, but it has to be a multiple of 25! (0, 25, 50, etc)"
+            msg = f"Sorry, you put in {cursed_energy} cursed energy, but it has to be a multiple of 25! (0, 25, 50, etc)"
             await ctx.send(msg)
             return
         
@@ -257,8 +267,86 @@ class Combat(Extension):
             await ctx.send(msg)
             return
 
-        
+        modify_cursed_energy(player, -cursed_energy)
 
+        fight = get_player_fight(player)
+        defense_mod = cursed_energy / 12.5
+
+        self.bot.fights[fight].add_modifier(player, "reinforce_defense", "defense", defense_mod, 0)
+        msg = f"{player} reinforces themselves with cursed energy, increasing their defense by {defense_mod:.0f}!"
+        await ctx.send(msg)
+        
+    #Chant to regain CE and increase CE max
+    @slash_command(name="chant", description="Increase CE and CE max", scopes=[1165369533863837726])
+    async def chant(self, ctx: SlashContext):
+        player = current_player(str(ctx.author))
+        fight = get_player_fight(player)
+
+        modify_cursed_energy(player, 100)
+
+        self.bot.fights[fight].add_modifier(player, "chanting", "CE_max", 50, 0)
+        msg = f"{player} chants, restoring their cursed energy!"
+        await ctx.send(msg)
+
+    #Use RCT to heal self or other (with output RCT)
+    @slash_command(name="rct", description="Use reverse cursed technique", scopes=[1165369533863837726])
+    @slash_option(
+        name="target",
+        description="Player to output RCT on",
+        required=False,
+        opt_type=OptionType.INTEGER,
+        autocomplete=True
+    )
+    async def rct(self, ctx: SlashContext, target: str = "none"):
+        user = current_player(str(ctx.author))
+        cost = 50
+        restore = 10
+        
+        cur = self.connection.execute(
+            "SELECT * "
+            "FROM rct "
+            "WHERE player_name = ?",
+            (user,)
+        )
+        rct_result = cur.fetchone()
+        cur.close()
+
+        if rct_result is None:
+            msg = f"Sorry, but you don't know how to use RCT!"
+            await ctx.send(msg)
+            return
+
+        if target != "none":
+            if rct_result["output_rct"] == 1:
+                target = user
+            else:
+                msg = f"Sorry, but you don't know how to output RCT!"
+                await ctx.send(msg)
+                return
+        else:
+            target = user
+            
+        if rct_result["fast_healing"]:
+            restore = 15
+
+        # Verify player has enough CE for what they want to do
+        if not verify_cursed_energy(user, 50):
+            msg = f"Sorry, you tried to use {cost} CE but don't have enough!"
+            await ctx.send(msg)
+            return
+        
+        modify_cursed_energy(user, cost)
+        restore_health(target, restore)
+
+        msg = f"{user} healed {target} for {restore} health!"
+        await ctx.send(msg)
+
+    @rct.autocomplete("target")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        user = current_player(str(ctx.author))
+        fight_name = get_player_fight(user)
+        await ctx.send(get_players_in_fight(fight_name))
+        
         
 
         

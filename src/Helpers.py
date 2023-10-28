@@ -67,6 +67,29 @@ def deal_damage(name, damage):
     connection.commit()
     cur.close()
 
+def restore_health(name, health):
+    cur = connection.execute(
+        "SELECT current_health, max_health "
+        "FROM players "
+        "WHERE player_name = ?",
+        (name,)
+    )
+    h = cur.fetchone()
+    cur.close()
+    new_health = h["current_health"] + health
+    max_health = h["max_health"]
+
+    if new_health > max_health:
+        new_health = max_health
+
+    connection.execute(
+        "UPDATE players "
+        "SET current_health = ? "
+        "WHERE player_name = ?",
+        (new_health, name)
+    )
+    connection.commit()
+
 def verify_cursed_energy(name, amount):
     cur = connection.execute(
         "SELECT current_CE "
@@ -79,14 +102,21 @@ def verify_cursed_energy(name, amount):
     current_energy = current_energy["current_CE"]
     return current_energy >= amount
 
-def drain_cursed_energy(name, amount):
+def modify_cursed_energy(name, amount):
     cur = connection.execute(
-        "SELECT current_CE "
+        "SELECT current_CE, max_CE "
         "FROM players "
         "WHERE player_name = ?",
         (name,)
     )
-    new_energy = cur.fetchone()["current_CE"] - amount
+    energy = cur.fetchone()
+    new_energy = energy["current_CE"] + amount
+    max_energy = energy["max_CE"]
+
+    # Make sure not to overcap energy. Shouldn't need a lower bound... surely this will not bite me in the future
+    if new_energy > max_energy:
+        new_energy = max_energy
+
     cur.close()
 
     connection.execute(

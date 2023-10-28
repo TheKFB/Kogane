@@ -50,12 +50,42 @@ class Game(Extension):
         techniques = cur.fetchall()
         cur.close()
 
+        cur = connection.execute(
+            "SELECT fight_name "
+            "FROM active_players "
+            "WHERE player_name = ?",
+            (player,)
+        )
+        fight_res = cur.fetchone()
+        cur.close()
+
+
         msg = f"Player: {result['player_name']}\n"
         msg += f"Controlled by: {result['discord_name']}\n"
         msg += f"Health: {result['current_health']}/{result['max_health']}\n"
         msg += f"Cursed Energy: {result['current_CE']}/{result['max_CE']}\n"
-        msg += f"Defense: {result['defense']}\n"
-        msg += f"Attack Bonus: {result['attack_bonus']}\n"
+        
+        if tools != None:
+            msg += f"Tools:\n"
+            for tool in tools:
+                msg += f"\t{tool['tool_name']}\n"
+
+        if techniques != None:
+            msg += f"Techniques:\n"
+            for tech in techniques:
+                msg += f"\t{tech['technique_name']}\n"
+
+        if fight_res != None:
+            msg += f"{player} is currently fighting in {fight_res['fight_name']}!\n"
+            msg += f"Active modifiers:\n"
+            for category in ["attack", "defense", "damage_resistance", "CE_max", "attack_CE_max"]:
+                cat_str = self.bot.fights[fight_res['fight_name']].participants[player].get_modifier_str(category)
+                #Skip if no active modifier in category
+                if cat_str == "":
+                    continue
+                msg += f"{category}\n"
+                msg += f"{cat_str}\n"
+
         await ctx.send(msg)
     @show.autocomplete("player")
     async def autocomplete(self, ctx: AutocompleteContext):

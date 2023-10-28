@@ -19,7 +19,7 @@ INSERT INTO modifiers(technique_name, modified_field, modified_value, duration)
 VALUES ('Boogie Woogie', 'defense', '2', '1');
 
 INSERT INTO modifiers(technique_name, modified_field, modified_value, duration)
-VALUES ('Boogie Woogie', 'attack_bonus', '2', '1');
+VALUES ('Boogie Woogie', 'attack', '2', '1');
 
 INSERT INTO tools(tool_name, point_cost, damage, owner)
 VALUES ('Playful Cloud', 3, '1d3*10', 'Aoi Todo');

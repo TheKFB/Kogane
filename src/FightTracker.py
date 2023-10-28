@@ -1,42 +1,69 @@
 from dice import roll
 
+class Modifier():
+
+    def __init__(self, name, category, value, duration):
+        self.name = name    #Source of the modification
+        self.category = category    #Valid categories: attack, defense, damage_resistance, CE_max, attack_CE_max
+        self.value = value  #Amount of modification. A string, which can be a single number or dice expression
+        self.duration = duration    #In number of rounds
+
 class Participant():
     name = ""
     initiative = 0
-    cooldowns = {}
+
+    #Max CE you can use in a turn
+    CE_max = 100
+    #Max CE you can use on an attack
+    attack_CE_max = 50
+    CE_used = 0
+    #List of modifiers
+    modifiers = []
 
     def __init__(self, player_name, init):
         self.name = player_name
         self.initiative = init
 
     def lower_cooldowns(self):
-        for cd in self.cooldowns:
-            self.cooldowns[cd] -= 1
+        finished_cooldowns = []
+        for mod in self.modifiers:
+            mod.duration -= 1
 
-            if self.cooldowns[cd] == 0:
-                del self.cooldowns[cd]
+            if mod.duration == 0:
+                finished_cooldowns.append(mod)
 
-    def add_buff(self, category, value, duration):
-        key = category + ":" + str(value)
+        for ele in finished_cooldowns:
+            self.modifiers.remove(ele)
+
+    def add_modifier(self, name, category, value, duration):
         #Cooldowns decrement at the start of a player's turn, so a 1-round buff needs
         #To have a duration of 1+1=2 so i
-        self.cooldowns[key] = duration + 1
+        mod = Modifier(name, category, value, duration + 1)
+        self.modifiers.append(mod)
 
-    def get_bonus(self, category):
+    def get_modifier(self, category):
         bonus_str = ""
-        #Ability cooldowns are formatted like {"name": cooldown}
-        #While buffs are {"category:value": duration}
-        for bonus in self.cooldowns:
-            split = bonus.split(":")
-            if len(split) < 2:
+
+        for mod in self.modifiers:
+            if mod.category != category:
                 continue
-            if split[0] != category:
-                continue
-            bonus_str += split[1]
+            else:
+                bonus_str += mod.value
 
         result = roll(bonus_str)[0]
 
         return result
+    
+    def get_modifier_str(self, category):
+        bonus_str = ""
+
+        for mod in self.modifiers:
+            if mod.category != category:
+                continue
+            else:
+                bonus_str += f"\t{mod.name}: {mod.value} ({mod.duration} round(s) left)\n"  
+
+        return bonus_str
 
 class FightTracker():
     # Key: player_name, Value: Participant
@@ -44,8 +71,8 @@ class FightTracker():
     turn_order = []
     current_turn = 0
 
-    def add_buff(self, target, category, value, duration):
-        self.participants[target].add_buff(category, value, duration)
+    def add_modifier(self, target, name, category, value, duration):
+        self.participants[target].add_modifier(name, category, value, duration)
 
     def join_fight(self, player, init):
         self.participants[player] = Participant(player, init)
@@ -65,3 +92,8 @@ class FightTracker():
 
         # lower cooldowns of next player
         self.participants[self.turn_order[self.current_turn]].lower_cooldowns()
+        # reset CE amount used
+        self.participants[self.turn_order[self.current_turn]].CE_used = 0
+
+    def current_player(self):
+        return self.turn_order[self.current_turn]
