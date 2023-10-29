@@ -52,7 +52,7 @@ class Game(Extension):
 
         cur = connection.execute(
             "SELECT fight_name "
-            "FROM active_players "
+            "FROM players "
             "WHERE player_name = ?",
             (player,)
         )

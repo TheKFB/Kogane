@@ -40,7 +40,7 @@ class Combat(Extension):
         player = current_player(str(ctx.author))
 
         self.connection.execute(
-            "UPDATE active_players "
+            "UPDATE players "
             "SET fight_name = ? "
             "WHERE player_name = ?",
             (name, player)
@@ -49,6 +49,21 @@ class Combat(Extension):
 
         initiative = roll("1d10")[0]
         self.bot.fights[name].join_fight(player, initiative)
+
+        cur = self.connection.execute(
+            "SELECT * "
+            "FROM heavenly_restrictions "
+            "WHERE player_name = ?",
+            (player,)
+        )
+
+        for hr in cur.fetchall():
+            buff = Modifier("Heavenly Restriction", hr["buff_category"], hr["buff_value"], 999)
+            debuff = Modifier("Heavenly Restriction", hr["debuff_category"], hr["debuff_value"], 999)
+            self.bot.fights[name].add_modifier(player, buff)
+            self.bot.fights[name].add_modifier(player, debuff)
+
+        cur.close()
         msg = f"{player} has joined the battle of {name} at initiative count {initiative}!"
         await ctx.send(msg)
 
@@ -96,6 +111,7 @@ class Combat(Extension):
     )
     async def attack(self, ctx: SlashContext, target: str, weapon: str, cursed_energy: int = 0, description: str = "attack"):
         attacker = current_player(str(ctx.author))
+        fight = get_player_fight(attacker)
         # 25 CE = 10 damage, verify CE is a multiple of 25
         if cursed_energy % 25 != 0 or cursed_energy < 0 :
             msg = "Sorry, you put in " + str(cursed_energy) + " cursed energy, but it has to be a multiple of 25! (0, 25, 50, etc)"
@@ -110,29 +126,15 @@ class Combat(Extension):
         
         modify_cursed_energy(attacker, -cursed_energy)
         
-        cur = self.connection.execute(
-            "SELECT attack_bonus "
-            "FROM players "
-            "WHERE player_name = ?",
-            (attacker,)
-        )
-        attack_bonus = cur.fetchone()["attack_bonus"]
+        attack_bonus = self.bot.fights[fight].participants[attacker].get_modifier("attack")
         roll_value = roll("1d20")[0]
         total = roll_value + attack_bonus
         roll_string = f"**1d20 + {attack_bonus} = {roll_value} + {attack_bonus} = {total}**\n"
         await ctx.send(roll_string)
-        cur.close()
 
-        cur = self.connection.execute(
-            "SELECT defense "
-            "FROM players "
-            "WHERE player_name = ?",
-            (target,)
-        )
-        target_defense = cur.fetchone()["defense"]
+        target_defense = 10 + self.bot.fights[fight].participants[attacker].get_modifier("defense")
         success = total > target_defense
         msg = f"{attacker} tries to {description}"
-        cur.close()
 
         if not success:
             msg += f", but fails!"
@@ -227,9 +229,11 @@ class Combat(Extension):
         # Apply technique buffs/debuffs
         fight_name = get_player_fight(target)
         for mod in results:
-            value = roll(mod["modified_value"])
+            value = mod["modified_value"]
             duration = roll(mod["duration"])
-            self.bot.fights[fight_name].add_modifier(target, technique, mod["modified_field"], value, duration)
+            new_mod = Modifier(technique, mod["modified_field"], value, duration)
+            
+            self.bot.fights[fight_name].add_modifier(target, new_mod)
 
         msg = f"{user} activates their cursed technique: {technique} on {target}!"
         await ctx.send(msg)

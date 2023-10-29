@@ -8,21 +8,22 @@ class Modifier():
         self.value = value  #Amount of modification. A string, which can be a single number or dice expression
         self.duration = duration    #In number of rounds
 
-class Participant():
-    name = ""
-    initiative = 0
+    #def __str__(self):
+    #    return f"Name: {self.name}, Category: {self.category}, Value: {self.value}, Duration: {self.duration}"
 
-    #Max CE you can use in a turn
-    CE_max = 100
-    #Max CE you can use on an attack
-    attack_CE_max = 50
-    CE_used = 0
-    #List of modifiers
-    modifiers = []
+class Participant():
 
     def __init__(self, player_name, init):
         self.name = player_name
         self.initiative = init
+
+        #Max CE you can use in a turn
+        self.CE_max = 100
+        #Max CE you can use on an attack
+        self.attack_CE_max = 50
+        self.CE_used = 0
+        #List of modifiers
+        self.modifiers = []
 
     def lower_cooldowns(self):
         finished_cooldowns = []
@@ -35,11 +36,8 @@ class Participant():
         for ele in finished_cooldowns:
             self.modifiers.remove(ele)
 
-    def add_modifier(self, name, category, value, duration):
-        #Cooldowns decrement at the start of a player's turn, so a 1-round buff needs
-        #To have a duration of 1+1=2 so i
-        mod = Modifier(name, category, value, duration + 1)
-        self.modifiers.append(mod)
+    def add_modifier(self, new_mod):
+        self.modifiers.append(new_mod)
 
     def get_modifier(self, category):
         bonus_str = ""
@@ -66,13 +64,16 @@ class Participant():
         return bonus_str
 
 class FightTracker():
-    # Key: player_name, Value: Participant
-    participants = {}
-    turn_order = []
-    current_turn = 0
 
-    def add_modifier(self, target, name, category, value, duration):
-        self.participants[target].add_modifier(name, category, value, duration)
+    def __init__(self):
+        # Key: player_name, Value: Participant
+        self.participants = {}
+        self.turn_order = []
+        self.current_turn = 0
+
+
+    def add_modifier(self, target, new_mod):
+        self.participants[target].add_modifier(new_mod)
 
     def join_fight(self, player, init):
         self.participants[player] = Participant(player, init)

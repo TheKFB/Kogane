@@ -39,7 +39,7 @@ def current_player(user):
 def get_player_fight(player):
     cur = connection.execute(
         "SELECT fight_name "
-        "FROM active_players "
+        "FROM players "
         "WHERE player_name = ?",
         (player,)
     )
@@ -212,7 +212,7 @@ def get_owned_techniques(name):
 def get_players_in_fight(name):
     cur = connection.execute(
         "SELECT player_name "
-        "FROM active_players "
+        "FROM players "
         "WHERE fight_name = ?",
         (name,)
     )

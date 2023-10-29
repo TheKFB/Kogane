@@ -7,13 +7,13 @@ CREATE TABLE players(
     current_health INTEGER NOT NULL,
     max_CE INTEGER NOT NULL,
     current_CE INTEGER NOT NULL,
+    fight_name VARCHAR(100),
     PRIMARY KEY(player_name)
 );
 
 CREATE TABLE active_players(
     discord_name VARCHAR(40) NOT NULL UNIQUE,
     player_name VARCHAR(100) NOT NULL,
-    fight_name VARCHAR(100),
     FOREIGN KEY (player_name) REFERENCES players(player_name),
     PRIMARY KEY (discord_name)
 );
@@ -22,6 +22,7 @@ CREATE TABLE techniques(
     technique_name VARCHAR(100) NOT NULL,
     CE_cost INTEGER NOT NULL,
     damage VARCHAR(40) NOT NULL,
+    activation_type VARCHAR(40) NOT NULL,
     owner VARCHAR(100),
     FOREIGN KEY (owner) REFERENCES players(player_name),
     PRIMARY KEY(technique_name)
