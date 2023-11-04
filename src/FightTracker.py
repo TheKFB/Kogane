@@ -48,9 +48,10 @@ class Participant():
             else:
                 bonus_str += mod.value
 
-        result = roll(bonus_str)[0]
-
-        return result
+        if bonus_str == "":
+            return 0
+        else:
+            return roll(bonus_str)[0]
     
     def get_modifier_str(self, category):
         bonus_str = ""

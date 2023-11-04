@@ -275,8 +275,8 @@ class Combat(Extension):
 
         fight = get_player_fight(player)
         defense_mod = cursed_energy / 12.5
-
-        self.bot.fights[fight].add_modifier(player, "reinforce_defense", "defense", defense_mod, 0)
+        reinforce_buff = Modifier("Reinforcement", "defense", defense_mod, 1)
+        self.bot.fights[fight].add_modifier(player, reinforce_buff)
         msg = f"{player} reinforces themselves with cursed energy, increasing their defense by {defense_mod:.0f}!"
         await ctx.send(msg)
         
@@ -287,8 +287,8 @@ class Combat(Extension):
         fight = get_player_fight(player)
 
         modify_cursed_energy(player, 100)
-
-        self.bot.fights[fight].add_modifier(player, "chanting", "CE_max", 50, 0)
+        chant_buff = Modifier("Chanting", "CE_max", 50, 1)
+        self.bot.fights[fight].add_modifier(player, chant_buff)
         msg = f"{player} chants, restoring their cursed energy!"
         await ctx.send(msg)
 
