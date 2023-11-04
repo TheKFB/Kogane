@@ -7,9 +7,6 @@ from dice import roll
 
 bot = Client(intents=Intents.DEFAULT)
 
-game = Game(bot)
-combat = Combat(bot)
-
 # Roll a d20
 @slash_command(name="roll_die", description="Roll a die", scopes=[1165369533863837726])
 @slash_option(
@@ -26,4 +23,6 @@ async def roll_die(ctx: SlashContext, equation: str):
 async def stop(ctx: SlashContext):
     bot.stop()
 
+bot.load_extension("Game")
+bot.load_extension("Combat")
 bot.start("")
