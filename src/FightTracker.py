@@ -99,3 +99,14 @@ class FightTracker():
 
     def current_player(self):
         return self.turn_order[self.current_turn]
+    
+    def list_initiative(self):
+        ret = ""
+        for player in self.turn_order:
+            init = self.participants[player].initiative
+            if player == self.current_player():
+                ret += f"**{init}: {player} (current turn)\n**"
+            else:
+                ret += f"{init}: {player}\n"
+
+        return ret

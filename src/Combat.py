@@ -1,5 +1,5 @@
 from interactions import Client, Intents, slash_command, slash_option, OptionType, SlashContext, SlashCommandChoice, AutocompleteContext
-from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, spread_to_rows, Extension
+from interactions import ActionRow, Button, ButtonStyle, StringSelectMenu, spread_to_rows, Extension, Embed
 from Database import get_db
 from dice import roll
 from Helpers import *
@@ -350,6 +350,26 @@ class Combat(Extension):
         user = current_player(str(ctx.author))
         fight_name = get_player_fight(user)
         await ctx.send(get_players_in_fight(fight_name))
+
+    #Show initiative
+    @slash_command(name="show_fight", description="Show the turn order of a fight", scopes=[1165369533863837726])
+    @slash_option(
+        name="fight",
+        description="Name of fight to show",
+        required=True,
+        opt_type=OptionType.STRING,
+        autocomplete=True
+    )
+    async def show_fight(self, ctx: SlashContext, fight: str):
+        title = f"The battle of {fight}"
+        desc = self.bot.fights[fight].list_initiative()
+        e = Embed(title=title, description=desc)
+        await ctx.send(embed=e)
+
+    @show_fight.autocomplete("fight")
+    async def autocomplete(self, ctx: AutocompleteContext):
+        await ctx.send([x for x in self.bot.fights])
+
         
         
 
