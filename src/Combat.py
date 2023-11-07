@@ -119,11 +119,12 @@ class Combat(Extension):
             return
         
         # Verify player has enough CE for what they want to do
-        if not verify_cursed_energy(attacker, cursed_energy):
-            msg = "Sorry, you tried to use " + cursed_energy + " CE but don't have enough!"
-            await ctx.send(msg)
+        ver_str = verify_cursed_energy(attacker, self.bot.fights[fight], cursed_energy)
+        if ver_str != "":
+            await ctx.send(ver_str)
             return
         
+        self.bot.fights[fight].participants[attacker].CE_used += cursed_energy
         modify_cursed_energy(attacker, -cursed_energy)
         
         attack_bonus = self.bot.fights[fight].participants[attacker].get_modifier("attack")
@@ -132,7 +133,7 @@ class Combat(Extension):
         roll_string = f"**1d20 + {attack_bonus} = {roll_value} + {attack_bonus} = {total}**\n"
         await ctx.send(roll_string)
 
-        target_defense = 10 + self.bot.fights[fight].participants[attacker].get_modifier("defense")
+        target_defense = 10 + self.bot.fights[fight].participants[target].get_modifier("defense")
         success = total > target_defense
         msg = f"{attacker} tries to {description}"
 
@@ -197,6 +198,7 @@ class Combat(Extension):
     )
     async def activate_technique(self, ctx: SlashContext, target: str, technique: str):
         user = current_player(str(ctx.author))
+        fight_name = get_player_fight(target)
         cur = self.connection.execute(
             "SELECT damage, CE_cost "
             "FROM techniques "
@@ -207,11 +209,13 @@ class Combat(Extension):
         cost = res["CE_cost"]
         cur.close()
 
-        if not verify_cursed_energy(user, cost):
-            msg = "Sorry, you tried to use " + cost + " CE but don't have enough!"
-            await ctx.send(msg)
+        # Verify player has enough CE for what they want to do
+        ver_str = verify_cursed_energy(user, self.bot.fights[fight_name], cost)
+        if ver_str != "":
+            await ctx.send(ver_str)
             return
 
+        self.bot.fights[fight_name].participants[user].CE_used += cost
         modify_cursed_energy(user, -cost)
         damage = roll(res["damage"])
         deal_damage(target, damage)
@@ -227,7 +231,6 @@ class Combat(Extension):
         cur.close()
 
         # Apply technique buffs/debuffs
-        fight_name = get_player_fight(target)
         for mod in results:
             value = mod["modified_value"]
             duration = roll(mod["duration"])
@@ -259,6 +262,7 @@ class Combat(Extension):
     )
     async def reinforce_defense(self, ctx: SlashContext, cursed_energy: int):
         player = current_player(str(ctx.author))
+        fight = get_player_fight(player)
         # 25 CE = +2 defense, verify CE is a multiple of 25
         if cursed_energy % 25 != 0 or cursed_energy < 0 :
             msg = f"Sorry, you put in {cursed_energy} cursed energy, but it has to be a multiple of 25! (0, 25, 50, etc)"
@@ -266,14 +270,14 @@ class Combat(Extension):
             return
         
         # Verify player has enough CE for what they want to do
-        if not verify_cursed_energy(player, cursed_energy):
-            msg = "Sorry, you tried to use " + cursed_energy + " CE but don't have enough!"
-            await ctx.send(msg)
+        ver_str = verify_cursed_energy(player, self.bot.fights[fight], cursed_energy)
+        if ver_str != "":
+            await ctx.send(ver_str)
             return
 
+        self.bot.fights[fight].participants[player].CE_used += cursed_energy
         modify_cursed_energy(player, -cursed_energy)
 
-        fight = get_player_fight(player)
         defense_mod = cursed_energy / 12.5
         reinforce_buff = Modifier("Reinforcement", "defense", defense_mod, 1)
         self.bot.fights[fight].add_modifier(player, reinforce_buff)
@@ -303,6 +307,7 @@ class Combat(Extension):
     )
     async def rct(self, ctx: SlashContext, target: str = "none"):
         user = current_player(str(ctx.author))
+        fight = get_player_fight(user)
         cost = 50
         restore = 10
         
@@ -334,11 +339,12 @@ class Combat(Extension):
             restore = 15
 
         # Verify player has enough CE for what they want to do
-        if not verify_cursed_energy(user, 50):
-            msg = f"Sorry, you tried to use {cost} CE but don't have enough!"
-            await ctx.send(msg)
+        ver_str = verify_cursed_energy(user, self.bot.fights[fight], cost)
+        if ver_str != "":
+            await ctx.send(ver_str)
             return
         
+        self.bot.fights[fight].participants[user].CE_used += cost
         modify_cursed_energy(user, cost)
         restore_health(target, restore)
 

@@ -46,12 +46,17 @@ class Participant():
             if mod.category != category:
                 continue
             else:
-                bonus_str += mod.value
+                bonus_str += str(mod.value)
 
         if bonus_str == "":
             return 0
         else:
-            return roll(bonus_str)[0]
+            ret = roll(bonus_str)
+            #Unsure as to why roll sometimes returns an int, other times a list
+            if isinstance(ret, int):
+                return ret
+            else:
+                return ret[0]
     
     def get_modifier_str(self, category):
         bonus_str = ""

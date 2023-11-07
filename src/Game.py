@@ -14,7 +14,6 @@ class Game(Extension):
 #                   #
 
     # Show a player's stats
-    # TODO: make this look pretty & show tools/techniques
     @slash_command(name="show", description="Show a player's information", scopes=[1165369533863837726])
     @slash_option(
         name="player",

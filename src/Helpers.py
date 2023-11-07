@@ -90,17 +90,27 @@ def restore_health(name, health):
     )
     connection.commit()
 
-def verify_cursed_energy(name, amount):
+def verify_cursed_energy(player, fight, amount):
+    ret = ""
     cur = connection.execute(
         "SELECT current_CE "
         "FROM players "
         "WHERE player_name = ?",
-        (name,)
+        (player,)
     )
     current_energy = cur.fetchone()
     cur.close()
     current_energy = current_energy["current_CE"]
-    return current_energy >= amount
+    if current_energy < amount:
+        ret = f"Sorry, you tried to use {amount} CE, but only have {current_energy}!\n"
+
+    CE_used = fight.participants[player].CE_used
+    CE_turn_max = fight.participants[player].CE_max
+
+    if amount + CE_used > CE_turn_max:
+        ret = f"Sorry, you tried to use {amount} CE, but have already used {CE_used}/{CE_turn_max} CE this turn!\n"
+
+    return ret
 
 def modify_cursed_energy(name, amount):
     cur = connection.execute(
