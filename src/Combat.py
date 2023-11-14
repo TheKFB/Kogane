@@ -26,6 +26,7 @@ class Combat(Extension):
         self.bot.fights[name] = fight
         msg = f"The battle of {name} has begun!"
         await ctx.send(msg)
+        await self.join_fight(ctx, name)
 
     # Join a fight
     @slash_command(name="join_fight", description="Join a fight!", scopes=[1165369533863837726])
@@ -127,22 +128,6 @@ class Combat(Extension):
         self.bot.fights[fight].participants[attacker].CE_used += cursed_energy
         modify_cursed_energy(attacker, -cursed_energy)
         
-        attack_bonus = self.bot.fights[fight].participants[attacker].get_modifier("attack")
-        roll_value = roll("1d20")[0]
-        total = roll_value + attack_bonus
-        roll_string = f"**1d20 + {attack_bonus} = {roll_value} + {attack_bonus} = {total}**\n"
-        await ctx.send(roll_string)
-
-        target_defense = 10 + self.bot.fights[fight].participants[target].get_modifier("defense")
-        success = total > target_defense
-        msg = f"{attacker} tries to {description}"
-
-        if not success:
-            msg += f", but fails!"
-            final_msg = roll_string + msg
-            await ctx.send(final_msg)
-            return
-        
         damage = 0
         damagestr = ""
         rollres = 0
@@ -158,13 +143,21 @@ class Combat(Extension):
             rollres = roll(damagestr)
             damage += rollres
             cur.close()
+        else:
+            damagestr = "0"
 
         # 25 CE = 10 damage
         ce_damage = cursed_energy / 2.5
         damage += ce_damage
+        success, roll_string = self.calculate_attack(attacker, target, damage)
 
-        deal_damage(target, damage)
-        msg += f" and succeeds, dealing **{str(damagestr)} ({rollres}) + {ce_damage:.0f} = {damage:.0f}** damage!"
+        msg = f"{attacker} tries to {description}"
+
+        if success:
+            msg += f", and succeeds, dealing {damagestr} + {ce_damage:.0f} = {damage:.0f} damage!"
+        else:
+            msg += f", but fails!"
+
         final_msg = roll_string + msg
         await ctx.send(final_msg)
     
@@ -179,6 +172,25 @@ class Combat(Extension):
         choices = get_owned_tools(current_player(str(ctx.author)))
         choices.append("martial arts")
         await ctx.send(choices)
+
+    # Rolls attack vs. target's defense, returns whether they succeeded and the result of the roll.
+    # Used for attacking with weapons & cursed techniques
+    def calculate_attack(self, attacker: str, target: str, damage: int):
+        fight = get_player_fight(attacker)
+        attack_bonus, attack_string = self.bot.fights[fight].participants[attacker].get_modifier("attack")
+        roll_value = roll("1d20")[0]
+        total = roll_value + attack_bonus
+        roll_string = f"**1d20 + {attack_string} = {roll_value} + {attack_bonus} = {total}**\n"
+
+        defense_bonus, defense_string = self.bot.fights[fight].participants[target].get_modifier("defense")
+
+        target_defense = 10 + defense_bonus
+        success = total >= target_defense
+
+        if success:
+            deal_damage(target, damage)
+        
+        return success, roll_string
 
     #Use a cursed technique
     @slash_command("activate_technique", description="Activate a cursed technique!", scopes=[1165369533863837726])

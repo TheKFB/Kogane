@@ -49,14 +49,14 @@ class Participant():
                 bonus_str += str(mod.value)
 
         if bonus_str == "":
-            return 0
+            return 0, 0
         else:
             ret = roll(bonus_str)
             #Unsure as to why roll sometimes returns an int, other times a list
             if isinstance(ret, int):
-                return ret
+                return ret, bonus_str
             else:
-                return ret[0]
+                return ret[0], bonus_str
     
     def get_modifier_str(self, category):
         bonus_str = ""
@@ -76,6 +76,8 @@ class FightTracker():
         self.participants = {}
         self.turn_order = []
         self.current_turn = 0
+        # Key: domain_name, Value: list of player_name(s) inside the domain
+        self.domains = []
 
 
     def add_modifier(self, target, new_mod):
@@ -85,9 +87,17 @@ class FightTracker():
         self.participants[player] = Participant(player, init)
 
         # Insert player above the first player they have a higher initiative than
+        print("Order:", self.turn_order)
         for idx, participant in enumerate(self.turn_order):
+            print(idx, participant)
             if init > self.participants[participant].initiative:
+                print("before")
                 self.turn_order.insert(idx, player)
+                print("after")
+                break
+
+            if idx > 10:
+                break
         # If they are the first or slowest, just append to the end
         if player not in self.turn_order:
             self.turn_order.append(player)
